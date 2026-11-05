@@ -1,6 +1,7 @@
 """NEXUS AI - Streamlit frontend for the LangGraph agent."""
 
 import json
+import re
 import time
 import uuid
 from datetime import datetime
@@ -84,6 +85,12 @@ def text_of(content):
             if not isinstance(block, dict) or block.get("type") == "text"
         )
     return str(content or "")
+
+
+def fix_math(text):
+    r"""Convert \( \) and \[ \] LaTeX delimiters to $ / $$ so Streamlit renders them."""
+    text = re.sub(r"\\\[(.+?)\\\]", lambda m: f"$${m.group(1).strip()}$$", text, flags=re.S)
+    return re.sub(r"\\\((.+?)\\\)", lambda m: f"${m.group(1).strip()}$", text, flags=re.S)
 
 
 def render_tool_details(record):
@@ -227,7 +234,7 @@ def run_agent(prompt, thread_id):
                 answer += text
                 now = time.perf_counter()
                 if now - last_paint > 0.03:
-                    answer_slot.markdown(answer + " ▍")
+                    answer_slot.markdown(fix_math(answer) + " ▍")
                     last_paint = now
 
         elif node == "tools":
@@ -252,7 +259,7 @@ def run_agent(prompt, thread_id):
     elapsed = time.perf_counter() - started
     if tools_box is None:
         thinking_slot.empty()
-    answer_slot.markdown(answer or "_No response._")
+    answer_slot.markdown(fix_math(answer) or "_No response._")
 
     if tools_box is not None:
         tools_box.update(
@@ -440,7 +447,7 @@ for message in st.session_state.messages:
         if message.get("tools"):
             n = len(message["tools"])
             render_tool_timeline(message["tools"], f"Used {n} tool{'s' if n != 1 else ''}")
-        st.markdown(message["content"])
+        st.markdown(fix_math(message["content"]))
 
 if prompt:
     thread_id = st.session_state.thread_id
